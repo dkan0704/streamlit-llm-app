@@ -1,13 +1,14 @@
 from dotenv import load_dotenv
-import os
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage
 
-from openai import OpenAI
-from langchain.schema import SystemMessage, HumanMessage
+import os
 import streamlit as st
 
-load_dotenv()
+load_dotenv() # .envファイルの環境変数を読み込む
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# OpenAIのAPIキーを環境変数から取得
+api_key = os.getenv("OPENAI_API_KEY")
 
 st.title("サンプルアプリ: 専門家A,Bが回答するアプリ")
 
@@ -21,47 +22,39 @@ selected_item = st.radio(
     ["専門家A:エンジニア", "専門家B:弁護士"]
 )
 
-st.divider()
+st.divider() # 画面に区切り線を入れる
+
+# 入力メッセージを格納する変数を統一
+input_message = ""
 
 if selected_item == "専門家A:エンジニア":
     input_message = st.text_input(label="エンジニアに対する質問を入力してください。")
     text_count = len(input_message)
 
 else:
-    input_message_B = st.text_input(label="弁護士に対する質問を入力してください。")
-    text_count = len(input_message_B)
+    input_message = st.text_input(label="弁護士に対する質問を入力してください。")
+    text_count = len(input_message)
 
+# 入力テキストと選択ボタンを引数にしてllmを戻り値とする関数 を定義する
+def get_response(input_message, selected_item):
+    if input_message:
+        lmm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, openai_api_key=api_key)
+        messages = [
+            SystemMessage(content=f"あなたは{selected_item}です。"),
+            HumanMessage(content=input_message)
+            ]
+        result = lmm(messages)
+        return result
+    else:
+        st.error("質問を入力してから「実行」ボタンを押してください。")
 
 if st.button("実行"):
     st.divider()
-
-    if selected_item == "専門家A:エンジニア":
-        if input_message:
-            response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": "あなたは親切なアシスタントです。"},
-                        {"role": "user", "content": input_message}
-                    ]
-                )
-            st.write(f"回答: {response.choices[0].message.content}")
-
-        else:
-            st.error("質問を入力してから「実行」ボタンを押してください。")
-
-    elif selected_item == "専門家B:弁護士":
-        if input_message_B:
-            response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": "あなたは親切なアシスタントです。"},
-                        {"role": "user", "content": input_message_B}
-                    ]
-                )
-            st.write(f"回答: {response.choices[0].message.content}")
-
-        else:
-            st.error("質問を入力してから「実行」ボタンを押してください。")
-
+    if input_message:
+        response = get_response(input_message, selected_item)
+        if response:
+            st.write(f"回答: {response.content}")
     else:
-        st.error("動作モードを選択してから「実行」ボタンを押してください。")
+        st.error("質問を入力してから「実行」ボタンを押してください。")
+
+
